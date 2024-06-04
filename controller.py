@@ -8,13 +8,15 @@ def return_true(body): return True
 
 
 class Controller:
-    def __init__(self, table_name, validate_data=return_true,allowed_gets=[]):
+    def __init__(self, table_name, modify_data=None, validate_data=return_true,allowed_gets=[]):
         self.table_name = table_name
+        self.mod_data = modify_data
         self.dco = validate_data  # data consistency object
         self.alq = allowed_gets  # query criteria
 
     def post(self):
         body = request.json
+        if self.mod_data: self.mod_data(request.json)
         if self.dco(body):
             return jsonify({"data": f"{self.create_from_dict(body)} row(s) affected."})
         else:
@@ -32,7 +34,7 @@ class Controller:
         for col in self.alq:
             arg = request.args.get(col["arg"])
             if arg: sql_where += f"and {col["name"]} {col["comparator"]} '{arg}'"
-        data = {"data": Db.query(f"select * from items {sql_where};")}
+        data = {"data": Db.query(f"select * from {self.table_name} {sql_where};")}
         return jsonify(data)
 
     def delete(self):
@@ -58,6 +60,9 @@ class Controller:
                 col_values += "true," if val else "false,"
             if val_type is dict:
                 col_values += f"'{str(val).replace("'", '"')}'::json,"
+            if val_type is bytes:
+                print(str(val))
+                col_values += f"'{str(val)[2:-1]}',"
             if val is None:
                 col_values += "NULL,"
         return Db.query(f"""insert into {self.table_name} ({col_names}) values ({col_values[:-1]});""")
@@ -79,6 +84,8 @@ class Controller:
                 val = "true," if v else "false"
             if val_type is dict:
                 val = f"'{str(v).replace("'", '"')}'::json"
+            if v is bytes:
+                val = f"'{str(v)}'"
             if v is None:
                 val = "NULL"
             if k == "id":

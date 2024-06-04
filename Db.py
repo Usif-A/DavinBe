@@ -1,4 +1,11 @@
 import psycopg2
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+
 
 def createDict(keys, tup):
     di = {}
@@ -11,7 +18,11 @@ class Db ():
     def query(self, query):
         print(query)
         conn = psycopg2.connect(
-            database="davin", user='postgres', password='password', host='127.0.0.1', port= '5432'
+            database=os.getenv("DATABASE"),
+            user=os.getenv("USER"),
+            password=os.getenv("PASSWORD"),
+            host=os.getenv("HOST"),
+            port= os.getenv("PORT")
         )
         with conn.cursor() as cur:
             cur.execute(query)

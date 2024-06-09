@@ -3,10 +3,11 @@ from controller import Controller, handle_controller
 from flask import request
 from Db import Database as Db
 from flask import Flask, request, jsonify
-import jwt
+
 from datetime import datetime, timedelta, timezone
 import os
 from dotenv import load_dotenv
+import jwt
 
 
 load_dotenv()
@@ -45,6 +46,7 @@ def login():
         payload = {
             'user_id': user_data["id"],
             'username': user_data["email"],
+            'acc_id': "e4671bd6-ed9b-4d1c-b690-7712f589f702",
             'exp': datetime.utcnow() + timedelta(minutes=60)  # Token expiration time
         }
 
@@ -58,14 +60,6 @@ def login():
         return jsonify({'token': token})
     return jsonify({'message': 'Invalid credentials'}), 401
 
-def decode_token(token):
-    secret_key = os.getenv("TOKEN_KEY")
-    try:
-        message = jwt.decode(token, secret_key, algorithms=['HS256'])
 
-    except jwt.ExpiredSignatureError:
-        message = "Token has expired"
-    except jwt.InvalidTokenError:
-        message = "Invalid token"
-    return message
+
 

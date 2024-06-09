@@ -1,35 +1,58 @@
 from Db import Database as Db
 from flask import jsonify, request
-
+import os
+from dotenv import load_dotenv
+import jwt
 from uuid import uuid4
 
+load_dotenv()
 
-def return_true(body): return True
+
+
+def return_true(): return True
 
 
 class Controller:
-    def __init__(self, table_name, modify_data=None, validate_data=return_true,allowed_gets=[]):
+
+    def __init__(self, table_name, modify_data=None, security_checker=return_true(), validate_data=return_true,allowed_gets=[],required_post_rows = []):
         self.table_name = table_name
         self.mod_data = modify_data
+        self.security_check = security_checker
+
         self.dco = validate_data  # data consistency object
         self.alq = allowed_gets  # query criteria
+        self.rpr = required_post_rows
+        self.user = {}
+
 
     def post(self):
+        check = self.security_check()
+        if check != True: return check
+
         body = request.json
         if self.mod_data: self.mod_data(request.json)
-        if self.dco(body):
-            return jsonify({"data": f"{self.create_from_dict(body)} row(s) affected."})
-        else:
-            return "data not valid"
+        for key in self.rpr: #basic validate
+            if not body[key]:
+                return jsonify({"data": f"missing required row f{key}"})
+        return jsonify({"data": f"{self.create_from_dict(body)} row(s) affected."})
+
 
     def put(self):
+        check = self.security_check()
+        if check != True: return check
+
         body = request.json
-        if self.dco(body):
-            return jsonify({"data": f"{self.update_from_dict(body)} row(s) affected."}) 
-        else:
-            return "data not valid"
+        for key in self.rpr: #basic validate
+            if not body[key]:
+                return jsonify({"data": f"missing a required row f{key}"})
+
+        return jsonify({"data": f"{self.update_from_dict(body)} row(s) affected."})
+
     
     def get(self):
+        check = self.security_check()
+        if check != True: return check
+
         sql_where = "where status = 'ACTIVE' "
         for col in self.alq:
             arg = request.args.get(col["arg"])
@@ -38,6 +61,10 @@ class Controller:
         return jsonify(data)
 
     def delete(self):
+        check = self.security_check()
+        if check != True: return check
+
+
         item_id = request.args.get('id')
         if item_id:
             row_count = Db.query(f"""UPDATE {self.table_name} SET "status" = 'DELETED' WHERE "id" = '{item_id}'""")
@@ -51,7 +78,7 @@ class Controller:
         col_values = ""
         for val in obj.values():
             val_type = type(val)
-            print(val_type)
+
             if val_type is str:
                 col_values += f"'{val}',"
             if val_type is int:
@@ -75,7 +102,7 @@ class Controller:
         for k, v in obj.items():
             val = None
             val_type = type(v)
-            print(val_type)
+
             if val_type is str:
                 val = f"'{v}'"
             if val_type is int:
@@ -96,6 +123,13 @@ class Controller:
         sql = f"""UPDATE {self.table_name} SET {set_val[:-1]} WHERE {where_val[:-1]};"""
         return Db.query(sql)
 
+
+
+    def isUserAllowed(self,account_id,user_id):
+        try:
+            print(Db.query(f"SELECT COUNT(*) > 0 as is_allowed  from acc_users au where au.acc_id ='{account_id}' and au.user_id ='{user_id}'"))
+        except:
+            return False
 
 def handle_controller(controller):
     if request.method == 'GET':
